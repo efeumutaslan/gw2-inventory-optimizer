@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useInventory } from '../context/InventoryContext';
+import { useTranslation } from '../context/I18nContext';
 import { 
   optimizeDistribution, 
   generateDistributionReport, 
@@ -10,29 +11,39 @@ import {
 import { RARITY_COLORS } from '../utils/categories';
 import TransferPlanView from './TransferPlanView';
 
-// Material Storage Stack Limit Input
-function MaterialStorageLimitInput({ stackLimit, usedSlots, totalEligibleTypes, onStackLimitChange }) {
-  const stackPresets = [250, 500, 750, 1000, 1500, 2000];
+// Material Storage Stack Limit Input with Fill Limit
+function MaterialStorageLimitInput({ stackLimit, fillLimit, usedSlots, totalEligibleTypes, lockedCount, onStackLimitChange, onFillLimitChange, t }) {
+  const stackPresets = [250, 500, 750, 1000, 1500, 2000, 2750];
+  const [useFillLimit, setUseFillLimit] = useState(fillLimit !== null);
+  
+  const handleFillLimitToggle = (enabled) => {
+    setUseFillLimit(enabled);
+    if (!enabled) {
+      onFillLimitChange(null);
+    } else {
+      onFillLimitChange(Math.min(stackLimit - 250, stackLimit));
+    }
+  };
   
   return (
     <div className="bg-orange-500/10 border border-orange-500/30 rounded-lg p-4 space-y-4">
       <div className="flex items-center gap-2">
         <span className="text-xl">🗄️</span>
-        <h4 className="font-medium text-orange-400">Material Storage Ayarları</h4>
+        <h4 className="font-medium text-orange-400">{t('ms_title')}</h4>
       </div>
       
       {/* Stack Limit */}
       <div className="bg-gw2-dark/30 rounded-lg p-3">
         <div className="flex items-center justify-between mb-2">
-          <label className="text-sm text-gray-300">Stack Limiti (Her İtem İçin)</label>
+          <label className="text-sm text-gray-300">{t('ms_stack_limit')}</label>
           <div className="flex items-center gap-2">
             <input
               type="number"
               min="250"
-              max="2000"
+              max="2750"
               step="250"
               value={stackLimit}
-              onChange={(e) => onStackLimitChange(Math.max(250, Math.min(2000, parseInt(e.target.value) || 250)))}
+              onChange={(e) => onStackLimitChange(Math.max(250, Math.min(2750, parseInt(e.target.value) || 250)))}
               className="input-field w-20 text-center text-sm"
             />
           </div>
@@ -52,27 +63,80 @@ function MaterialStorageLimitInput({ stackLimit, usedSlots, totalEligibleTypes, 
             </button>
           ))}
         </div>
-        <p className="text-xs text-gray-500">
-          Her item türünden max kaç adet depolanabilir. 
-          Material Storage Expander satın alarak artırılır.
+        <p className="text-xs text-gray-500">{t('ms_stack_limit_desc')}</p>
+      </div>
+      
+      {/* Fill Limit - Optional */}
+      <div className="bg-gw2-dark/30 rounded-lg p-3">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <input
+              type="checkbox"
+              id="use-fill-limit"
+              checked={useFillLimit}
+              onChange={(e) => handleFillLimitToggle(e.target.checked)}
+              className="w-4 h-4 rounded border-gray-600 bg-gw2-darker text-orange-500 focus:ring-orange-500"
+            />
+            <label htmlFor="use-fill-limit" className="text-sm text-gray-300">
+              Fill Limiti (Doldurma Sınırı)
+            </label>
+          </div>
+          {useFillLimit && (
+            <input
+              type="number"
+              min="0"
+              max={stackLimit}
+              step="50"
+              value={fillLimit || 0}
+              onChange={(e) => onFillLimitChange(Math.max(0, Math.min(stackLimit, parseInt(e.target.value) || 0)))}
+              className="input-field w-20 text-center text-sm"
+            />
+          )}
+        </div>
+        {useFillLimit && (
+          <>
+            <input
+              type="range"
+              min="0"
+              max={stackLimit}
+              step="50"
+              value={fillLimit || 0}
+              onChange={(e) => onFillLimitChange(parseInt(e.target.value))}
+              className="w-full h-2 bg-gw2-darker rounded-lg appearance-none cursor-pointer accent-orange-500"
+            />
+            <div className="flex justify-between text-xs text-gray-500 mt-1">
+              <span>0</span>
+              <span className="text-orange-400">{fillLimit}/{stackLimit}</span>
+              <span>{stackLimit}</span>
+            </div>
+          </>
+        )}
+        <p className="text-xs text-gray-500 mt-2">
+          {useFillLimit 
+            ? `Material Storage ${fillLimit}'e kadar doldurulacak. Oyunda "Deposit All" yapınca boş alan kalır.`
+            : 'Açık değil. Material Storage tamamen doldurulacak.'}
         </p>
       </div>
       
       {/* Current usage info */}
       <div className="bg-gw2-dark/50 rounded p-3 space-y-2">
         <div className="flex justify-between text-sm">
-          <span className="text-gray-400">Kullanılan Slot:</span>
+          <span className="text-gray-400">{t('ms_used_slots')}:</span>
           <span className="text-white font-medium">{usedSlots} tür</span>
         </div>
         {totalEligibleTypes > 0 && (
           <div className="flex justify-between text-sm">
-            <span className="text-gray-400">Gönderilebilecek:</span>
+            <span className="text-gray-400">{t('ms_eligible')}:</span>
             <span className="text-orange-400 font-medium">{totalEligibleTypes} stack</span>
           </div>
         )}
-        <p className="text-xs text-gray-600">
-          Material Storage'a hangi itemlerin gidebileceği GW2 tarafından belirlenir.
-        </p>
+        {lockedCount > 0 && (
+          <div className="flex justify-between text-sm">
+            <span className="text-gray-400">🔒 {t('lock_locked')}:</span>
+            <span className="text-yellow-400 font-medium">{lockedCount} item</span>
+          </div>
+        )}
+        <p className="text-xs text-gray-600">{t('ms_determined_by_gw2')}</p>
       </div>
     </div>
   );
@@ -492,7 +556,8 @@ function StackLimitExceededSection({ items, stackLimit }) {
 
 // Main Component
 export default function OptimizationPanel() {
-  const { items, characters: gameCharacters } = useInventory();
+  const { items, itemsWithLockStatus, lockedItemsStats, characters: gameCharacters } = useInventory();
+  const { t } = useTranslation();
   
   // Material Storage stack limit per item (saved to localStorage)
   const [stackLimit, setStackLimit] = useState(() => {
@@ -500,15 +565,29 @@ export default function OptimizationPanel() {
     return saved ? parseInt(saved) : 250;
   });
   
-  // Save stack limit to localStorage
+  // Material Storage fill limit (how much to fill, not max capacity)
+  const [fillLimit, setFillLimit] = useState(() => {
+    const saved = localStorage.getItem('gw2_material_fill_limit');
+    return saved ? parseInt(saved) : null; // null means use stackLimit
+  });
+  
+  // Save limits to localStorage
   useEffect(() => {
     localStorage.setItem('gw2_material_stack_limit', stackLimit.toString());
   }, [stackLimit]);
   
+  useEffect(() => {
+    if (fillLimit !== null) {
+      localStorage.setItem('gw2_material_fill_limit', fillLimit.toString());
+    } else {
+      localStorage.removeItem('gw2_material_fill_limit');
+    }
+  }, [fillLimit]);
+  
   // Character slots
   const [characterSlots, setCharacterSlots] = useState(() => {
     if (gameCharacters && gameCharacters.length > 0) {
-      return gameCharacters.slice(0, 5).map((name) => ({ name, slots: 100 }));
+      return gameCharacters.map((name) => ({ name, slots: 100 }));
     }
     return [
       { name: 'Karakter 1', slots: 28 },
@@ -523,11 +602,19 @@ export default function OptimizationPanel() {
   const [showSuggestions, setShowSuggestions] = useState(true);
   const [showTransferPlan, setShowTransferPlan] = useState(false);
   
-  // Material analysis with stack limit only (no slot limit needed)
+  // Filter out locked items for optimization
+  const unlockedItems = useMemo(() => {
+    return itemsWithLockStatus.filter(item => !item.isLocked);
+  }, [itemsWithLockStatus]);
+  
+  // Use effective fill limit (fillLimit or stackLimit)
+  const effectiveFillLimit = fillLimit !== null ? Math.min(fillLimit, stackLimit) : stackLimit;
+  
+  // Material analysis with stack limit only (no slot limit needed), excluding locked items
   const materialAnalysis = useMemo(() => {
-    if (items.length === 0) return null;
-    return selectItemsForMaterialStorage(items, stackLimit);
-  }, [items, stackLimit]);
+    if (unlockedItems.length === 0) return null;
+    return selectItemsForMaterialStorage(unlockedItems, effectiveFillLimit);
+  }, [unlockedItems, effectiveFillLimit]);
   
   // Get current used slots from analysis
   const materialStorageUsedSlots = materialAnalysis?.stats?.currentUsedSlots || 0;
@@ -537,9 +624,9 @@ export default function OptimizationPanel() {
   
   // Suggestions
   const suggestions = useMemo(() => {
-    if (items.length === 0) return null;
-    return suggestSlotDistribution(items, characterSlots.length, stackLimit);
-  }, [items, characterSlots.length, stackLimit]);
+    if (unlockedItems.length === 0) return null;
+    return suggestSlotDistribution(unlockedItems, characterSlots.length, effectiveFillLimit);
+  }, [unlockedItems, characterSlots.length, effectiveFillLimit]);
   
   // Category breakdown
   const categoryBreakdown = useMemo(() => {
@@ -566,7 +653,7 @@ export default function OptimizationPanel() {
   };
   
   const runOptimization = () => {
-    const distribution = optimizeDistribution(items, characterSlots, { 
+    const distribution = optimizeDistribution(unlockedItems, characterSlots, { 
       useSubCategories,
       stackLimit
     });
@@ -632,18 +719,43 @@ export default function OptimizationPanel() {
         {/* Material Storage Limits */}
         <MaterialStorageLimitInput 
           stackLimit={stackLimit}
+          fillLimit={fillLimit}
           usedSlots={materialStorageUsedSlots}
           totalEligibleTypes={totalEligibleItems}
+          lockedCount={lockedItemsStats.total}
           onStackLimitChange={setStackLimit}
+          onFillLimitChange={setFillLimit}
+          t={t}
         />
+        
+        {/* Locked Items Info */}
+        {lockedItemsStats.total > 0 && (
+          <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-3 text-sm">
+            <div className="flex items-center gap-2 text-yellow-400">
+              <span>🔒</span>
+              <span>{lockedItemsStats.total} item {t('lock_locked')}</span>
+            </div>
+            <p className="text-gray-400 text-xs mt-1">
+              {t('lock_description')}
+            </p>
+            {Object.keys(lockedItemsStats.byCharacter).length > 0 && (
+              <div className="flex flex-wrap gap-1 mt-2">
+                {Object.entries(lockedItemsStats.byCharacter).map(([char, count]) => (
+                  <span key={char} className="text-xs bg-yellow-500/20 px-2 py-0.5 rounded text-yellow-400">
+                    {char}: {count}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
         
         {/* Material Storage Warnings - only stack limit now */}
         {materialAnalysis?.stats?.couldNotFitDueToStackLimit > 0 && (
           <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 text-sm">
-            <span className="text-red-400">🚫 {materialAnalysis.stats.couldNotFitDueToStackLimit} stack Material Storage'a sığmıyor</span>
+            <span className="text-red-400">🚫 {materialAnalysis.stats.couldNotFitDueToStackLimit} stack {t('ms_cannot_fit')}</span>
             <p className="text-gray-400 text-xs mt-1">
-              Her item türü için max {stackLimit} adet depolanabilir. 
-              Bazı itemlerin stack'i dolu. Bu stackler karakterlerde kalacak.
+              {t('ms_stack_limit_full')}. {effectiveFillLimit < stackLimit && `(Fill limit: ${effectiveFillLimit})`}
             </p>
           </div>
         )}

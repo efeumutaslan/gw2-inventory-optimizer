@@ -1,14 +1,17 @@
 import { useEffect, useState } from 'react';
 import { DndContext, DragOverlay, pointerWithin } from '@dnd-kit/core';
 import { useInventory } from '../context/InventoryContext';
+import { useTranslation } from '../context/I18nContext';
 import FilterSidebar from './FilterSidebar';
 import ItemPool from './ItemPool';
 import BagPlanner from './BagPlanner';
 import OptimizationPanel from './OptimizationPanel';
 import ItemCard from './ItemCard';
+import LanguageSwitcher from './LanguageSwitcher';
 
 export default function Dashboard() {
   const { loadInventory, isLoading, loadingMessage, error, logout, filters, setFilters, bagPlan, updateBagPlan } = useInventory();
+  const { t } = useTranslation();
   const [rightPanel, setRightPanel] = useState(null); // null, 'planner', 'optimizer'
   const [activeItem, setActiveItem] = useState(null);
   
@@ -53,11 +56,11 @@ export default function Dashboard() {
         <header className="bg-gw2-dark/80 backdrop-blur border-b border-gray-700 px-4 py-3">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <h1 className="text-xl font-bold text-gw2-accent">GW2 Inventory Manager</h1>
+              <h1 className="text-xl font-bold text-gw2-accent">{t('app_name')}</h1>
               <div className="relative">
                 <input
                   type="text"
-                  placeholder="Item ara..."
+                  placeholder={t('search')}
                   value={filters.search || ''}
                   onChange={(e) => setFilters({ search: e.target.value })}
                   className="input-field w-64 pl-9 text-sm"
@@ -69,20 +72,21 @@ export default function Dashboard() {
             </div>
             
             <div className="flex items-center gap-3">
+              <LanguageSwitcher />
               <button 
                 onClick={() => togglePanel('optimizer')} 
                 className={`btn-secondary text-sm ${rightPanel === 'optimizer' ? 'bg-gw2-accent text-gw2-darker' : ''}`}
               >
-                🎯 Optimizasyon
+                🎯 {t('nav_optimization')}
               </button>
               <button 
                 onClick={() => togglePanel('planner')} 
                 className={`btn-secondary text-sm ${rightPanel === 'planner' ? 'bg-gw2-accent text-gw2-darker' : ''}`}
               >
-                📦 Planlayıcı
+                📦 {t('nav_bags')}
               </button>
-              <button onClick={loadInventory} disabled={isLoading} className="btn-secondary text-sm disabled:opacity-50">🔄 Yenile</button>
-              <button onClick={logout} className="text-sm text-gray-400 hover:text-red-400">Çıkış</button>
+              <button onClick={loadInventory} disabled={isLoading} className="btn-secondary text-sm disabled:opacity-50">🔄 {t('dashboard_reload')}</button>
+              <button onClick={logout} className="text-sm text-gray-400 hover:text-red-400">{t('dashboard_logout')}</button>
             </div>
           </div>
         </header>
@@ -92,7 +96,7 @@ export default function Dashboard() {
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50">
             <div className="bg-gw2-dark rounded-xl p-6 text-center">
               <div className="loading-spinner mx-auto mb-4"></div>
-              <p className="text-white">{loadingMessage || 'Yükleniyor...'}</p>
+              <p className="text-white">{loadingMessage || t('loading')}</p>
             </div>
           </div>
         )}
@@ -100,8 +104,8 @@ export default function Dashboard() {
         {/* Error */}
         {error && (
           <div className="bg-red-500/20 border-b border-red-500/50 px-4 py-2 text-red-400 text-sm">
-            Hata: {error}
-            <button onClick={loadInventory} className="ml-4 text-red-300 hover:underline">Tekrar dene</button>
+            {t('error')}: {error}
+            <button onClick={loadInventory} className="ml-4 text-red-300 hover:underline">{t('dashboard_reload')}</button>
           </div>
         )}
         

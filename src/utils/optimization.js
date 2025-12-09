@@ -9,11 +9,17 @@ import { CATEGORIES, classifyItem } from './categories';
  * 1. Same item ID across multiple characters = SINGLE slot in Material Storage
  * 2. Each item type has a STACK LIMIT (default 250, max 2000 with expanders)
  * 3. Only items with canGoToMaterialStorage=true can be stored
+ * 4. Locked items (including invisible bag items) are excluded
+ * 
+ * @param items - All inventory items (with isLocked property)
+ * @param stackLimit - Global stack limit per item type
+ * @param materialItemLimits - Per-item custom limits { itemId: maxAmount }
  */
-export function analyzeMaterialStorageItems(items, stackLimit = 250) {
+export function analyzeMaterialStorageItems(items, stackLimit = 250, materialItemLimits = {}) {
   const inMaterialStorage = []; // Zaten material storage'da
   const canGoToMaterialStorage = []; // Gönderilebilecek (API'ye göre)
   const cannotGoToMaterialStorage = []; // Gidemeyecek (API'ye göre)
+  const lockedItems = []; // Kilitli itemler (invisible bag dahil)
   
   // Material storage'da zaten olan item ID'leri ve miktarları
   const existingMaterialIds = new Set();
@@ -34,6 +40,12 @@ export function analyzeMaterialStorageItems(items, stackLimit = 250) {
   items.forEach(item => {
     // Material Storage'dan gelen itemleri atla (zaten işlendi)
     if (item.source === 'materials' || item.isInMaterialStorage) {
+      return;
+    }
+    
+    // CRITICAL: Check if item is locked (manual lock or invisible bag)
+    if (item.isLocked || item.isInInvisibleBag) {
+      lockedItems.push(item);
       return;
     }
     
@@ -69,12 +81,15 @@ export function analyzeMaterialStorageItems(items, stackLimit = 250) {
     itemsWithStackLimitIssue: [],
     totalMaterialStorageItems: inMaterialStorage.length,
     totalCanGoItems: canGoToMaterialStorage.length,
-    totalCannotGoItems: cannotGoToMaterialStorage.length
+    totalCannotGoItems: cannotGoToMaterialStorage.length,
+    totalLockedItems: lockedItems.length
   };
   
   itemsByIdMap.forEach((group, itemId) => {
+    // Use per-item limit if set, otherwise use global stack limit
+    const itemStackLimit = materialItemLimits[itemId] ?? stackLimit;
     const currentInStorage = existingMaterialCounts.get(itemId) || 0;
-    const availableSpace = Math.max(0, stackLimit - currentInStorage);
+    const availableSpace = Math.max(0, itemStackLimit - currentInStorage);
     const totalToSend = group.totalCount;
     
     if (existingMaterialIds.has(itemId)) {
@@ -246,6 +261,7 @@ export function analyzeMaterialStorageItems(items, stackLimit = 250) {
     cannotFitDueToStackLimit,
     newSlotGroups,
     cannotGoToMaterialStorage,
+    lockedItems, // NEW: Items that are locked and excluded from optimization
     existingMaterialIds,
     existingMaterialCounts,
     currentSlotUsage: existingMaterialIds.size,
@@ -258,11 +274,12 @@ export function analyzeMaterialStorageItems(items, stackLimit = 250) {
 /**
  * Select which items to send to Material Storage based on stack limit
  * Note: Slot limit is not needed - GW2 API determines which items can go to Material Storage
- * @param items - All inventory items
- * @param stackLimit - Per-item stack limit (250-2000)
+ * @param items - All inventory items (with isLocked property)
+ * @param stackLimit - Global per-item stack limit (250-2750)
+ * @param materialItemLimits - Per-item custom limits { itemId: maxAmount }
  */
-export function selectItemsForMaterialStorage(items, stackLimit = 250) {
-  const analysis = analyzeMaterialStorageItems(items, stackLimit);
+export function selectItemsForMaterialStorage(items, stackLimit = 250, materialItemLimits = {}) {
+  const analysis = analyzeMaterialStorageItems(items, stackLimit, materialItemLimits);
   
   // Mevcut kullanım = Material Storage'daki unique item sayısı
   const currentUsedSlots = analysis.existingMaterialIds.size;
@@ -276,13 +293,18 @@ export function selectItemsForMaterialStorage(items, stackLimit = 250) {
   // Stack limiti yüzünden gidemeyenler
   const stackLimitExceeded = analysis.cannotFitDueToStackLimit || [];
   
+  // Locked items (excluded from optimization)
+  const lockedItems = analysis.lockedItems || [];
+  
   return {
     toMaterialStorage,
     couldNotFit: [], // Slot limit yok artık
     stackLimitExceeded,
+    lockedItems, // NEW: Locked items that stay on character
     toCharacters: [
       ...analysis.cannotGoToMaterialStorage, 
       ...stackLimitExceeded
+      // NOT including lockedItems here - they are handled separately
     ],
     stats: {
       stackLimit,
@@ -294,6 +316,7 @@ export function selectItemsForMaterialStorage(items, stackLimit = 250) {
       couldNotFitCount: stackLimitExceeded.length,
       totalToMaterialStorage: toMaterialStorage.length,
       totalCannotGo: analysis.cannotGoToMaterialStorage.length,
+      totalLockedItems: lockedItems.length, // NEW
       afterOptimizationUsed: currentUsedSlots + analysis.uniqueNewSlotsNeeded
     }
   };

@@ -175,10 +175,45 @@ export async function getItemDetails(itemIds) {
 export async function getAllInventoryData(apiKey, onProgress) {
   const allItems = [];
   const itemIds = new Set();
+  const bagIds = new Set(); // Track bag IDs to fetch their details
   
   const progress = (step, detail) => {
     if (onProgress) onProgress({ step, detail });
   };
+  
+  // Known invisible/safe bag IDs (items in these bags won't be sold or deposited automatically)
+  // These bags have "Invisible" in their name or have special NoSell flags
+  const INVISIBLE_BAG_IDS = new Set([
+    8932,  // 4-Slot Invisible Bag
+    8933,  // 8-Slot Invisible Bag  
+    8934,  // 15-Slot Invisible Bag
+    8941,  // 8-Slot Invisible Bag (crafted)
+    8942,  // 12-Slot Invisible Bag (crafted)
+    32566, // 20-Slot Invisible Bag
+    37364, // 18-Slot Invisible Bag
+    37386, // 20-Slot Invisible Bag (different)
+    78474, // 24-Slot Invisible Bag
+    78661, // 24-Slot Invisible Bag (different)
+    79605, // 24-Slot Invisible Bag (different)
+    83079, // 28-Slot Invisible Bag
+    83660, // 32-Slot Invisible Bag
+    85371, // 32-Slot Invisible Bag (different)
+    // Safe boxes (similar behavior)
+    8936,  // 4-Slot Safe Box
+    8937,  // 8-Slot Safe Box
+    8938,  // 15-Slot Safe Box
+    8943,  // 8-Slot Safe Box (crafted)
+    8944,  // 12-Slot Safe Box (crafted)
+    9603,  // 20-Slot Safe Box
+    37378, // 18-Slot Safe Box
+    37396, // 20-Slot Safe Box (different)
+    78465, // 24-Slot Safe Box
+    78597, // 24-Slot Safe Box (different)
+    79632, // 24-Slot Safe Box (different)
+    83076, // 28-Slot Safe Box
+    83663, // 32-Slot Safe Box
+    85372, // 32-Slot Safe Box (different)
+  ]);
   
   // Get material storage item IDs first
   progress('materials-categories', 'Material Storage kategorileri yükleniyor...');
@@ -203,6 +238,9 @@ export async function getAllInventoryData(apiKey, onProgress) {
       if (inventory.bags) {
         inventory.bags.forEach((bag, bagIndex) => {
           if (bag && bag.inventory) {
+            const isInvisibleBag = INVISIBLE_BAG_IDS.has(bag.id);
+            bagIds.add(bag.id);
+            
             bag.inventory.forEach((item, slotIndex) => {
               if (item) {
                 allItems.push({
@@ -212,6 +250,8 @@ export async function getAllInventoryData(apiKey, onProgress) {
                   bagIndex,
                   slotIndex,
                   bagSize: bag.size,
+                  bagId: bag.id,
+                  isInInvisibleBag: isInvisibleBag,
                   canGoToMaterialStorage: materialStorageItemIds.has(item.id)
                 });
                 itemIds.add(item.id);

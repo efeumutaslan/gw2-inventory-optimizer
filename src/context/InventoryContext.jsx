@@ -1,5 +1,23 @@
-import { createContext, useContext, useReducer, useCallback } from 'react';
+import { createContext, useContext, useReducer, useCallback, useMemo } from 'react';
 import { getAllInventoryData, validateToken } from '../services/gw2Api';
+
+// Load locked items from localStorage
+const loadLockedItems = () => {
+  try {
+    return JSON.parse(localStorage.getItem('gw2_locked_items') || '{}');
+  } catch {
+    return {};
+  }
+};
+
+// Load per-item material limits from localStorage
+const loadMaterialItemLimits = () => {
+  try {
+    return JSON.parse(localStorage.getItem('gw2_material_item_limits') || '{}');
+  } catch {
+    return {};
+  }
+};
 
 const initialState = {
   apiKey: localStorage.getItem('gw2_api_key') || null,
@@ -14,7 +32,11 @@ const initialState = {
   sortOrder: 'desc',
   bagPlan: JSON.parse(localStorage.getItem('gw2_bag_plan') || '[]'),
   stats: { totalItems: 0, uniqueItems: 0, bySource: {}, byRarity: {} },
-  materialStorageUsedSlots: 0 // Mevcut material storage doluluk
+  materialStorageUsedSlots: 0,
+  // NEW: Locked items system
+  lockedItems: loadLockedItems(), // { "uniqueKey": true }
+  // NEW: Per-item material limits
+  materialItemLimits: loadMaterialItemLimits() // { "itemId": maxAmount }
 };
 
 const ACTIONS = {
@@ -27,7 +49,13 @@ const ACTIONS = {
   SET_SORT: 'SET_SORT',
   UPDATE_BAG_PLAN: 'UPDATE_BAG_PLAN',
   CLEAR_BAG_PLAN: 'CLEAR_BAG_PLAN',
-  RESET: 'RESET'
+  RESET: 'RESET',
+  // NEW: Locking system
+  TOGGLE_ITEM_LOCK: 'TOGGLE_ITEM_LOCK',
+  SET_LOCKED_ITEMS: 'SET_LOCKED_ITEMS',
+  // NEW: Per-item material limits
+  SET_MATERIAL_ITEM_LIMIT: 'SET_MATERIAL_ITEM_LIMIT',
+  REMOVE_MATERIAL_ITEM_LIMIT: 'REMOVE_MATERIAL_ITEM_LIMIT'
 };
 
 function inventoryReducer(state, action) {
@@ -84,6 +112,39 @@ function inventoryReducer(state, action) {
       localStorage.removeItem('gw2_api_key');
       localStorage.removeItem('gw2_bag_plan');
       return { ...initialState, apiKey: null };
+    
+    // NEW: Locking system
+    case ACTIONS.TOGGLE_ITEM_LOCK: {
+      const { uniqueKey, locked } = action.payload;
+      const newLockedItems = { ...state.lockedItems };
+      if (locked) {
+        newLockedItems[uniqueKey] = true;
+      } else {
+        delete newLockedItems[uniqueKey];
+      }
+      localStorage.setItem('gw2_locked_items', JSON.stringify(newLockedItems));
+      return { ...state, lockedItems: newLockedItems };
+    }
+    
+    case ACTIONS.SET_LOCKED_ITEMS: {
+      localStorage.setItem('gw2_locked_items', JSON.stringify(action.payload));
+      return { ...state, lockedItems: action.payload };
+    }
+    
+    // NEW: Per-item material limits
+    case ACTIONS.SET_MATERIAL_ITEM_LIMIT: {
+      const { itemId, limit } = action.payload;
+      const newLimits = { ...state.materialItemLimits, [itemId]: limit };
+      localStorage.setItem('gw2_material_item_limits', JSON.stringify(newLimits));
+      return { ...state, materialItemLimits: newLimits };
+    }
+    
+    case ACTIONS.REMOVE_MATERIAL_ITEM_LIMIT: {
+      const newLimits = { ...state.materialItemLimits };
+      delete newLimits[action.payload];
+      localStorage.setItem('gw2_material_item_limits', JSON.stringify(newLimits));
+      return { ...state, materialItemLimits: newLimits };
+    }
     
     default:
       return state;
@@ -151,6 +212,78 @@ export function InventoryProvider({ children }) {
     dispatch({ type: ACTIONS.RESET });
   }, []);
   
+  // NEW: Item locking functions
+  const toggleItemLock = useCallback((uniqueKey, locked) => {
+    dispatch({ type: ACTIONS.TOGGLE_ITEM_LOCK, payload: { uniqueKey, locked } });
+  }, []);
+  
+  const isItemLocked = useCallback((uniqueKey) => {
+    return !!state.lockedItems[uniqueKey];
+  }, [state.lockedItems]);
+  
+  const setLockedItems = useCallback((lockedItems) => {
+    dispatch({ type: ACTIONS.SET_LOCKED_ITEMS, payload: lockedItems });
+  }, []);
+  
+  // Helper to generate unique key for an item
+  const getItemUniqueKey = useCallback((item) => {
+    // For character items: characterName:bagIndex:slotIndex
+    if (item.source === 'character' && item.bagIndex !== undefined && item.slotIndex !== undefined) {
+      return `${item.sourceName}:${item.bagIndex}:${item.slotIndex}`;
+    }
+    // For bank items: bank:slotIndex
+    if (item.source === 'bank' && item.slotIndex !== undefined) {
+      return `bank:${item.slotIndex}`;
+    }
+    // For shared inventory: shared:slotIndex
+    if (item.source === 'shared' && item.slotIndex !== undefined) {
+      return `shared:${item.slotIndex}`;
+    }
+    // Fallback: use item id and a random identifier (not recommended)
+    return `${item.source}:${item.id}:${item.count}`;
+  }, []);
+  
+  // NEW: Per-item material limits functions
+  const setMaterialItemLimit = useCallback((itemId, limit) => {
+    dispatch({ type: ACTIONS.SET_MATERIAL_ITEM_LIMIT, payload: { itemId, limit } });
+  }, []);
+  
+  const removeMaterialItemLimit = useCallback((itemId) => {
+    dispatch({ type: ACTIONS.REMOVE_MATERIAL_ITEM_LIMIT, payload: itemId });
+  }, []);
+  
+  const getMaterialItemLimit = useCallback((itemId, defaultLimit) => {
+    return state.materialItemLimits[itemId] ?? defaultLimit;
+  }, [state.materialItemLimits]);
+  
+  // Computed: items with lock status
+  const itemsWithLockStatus = useMemo(() => {
+    return state.items.map(item => {
+      const uniqueKey = getItemUniqueKey(item);
+      const isLocked = !!state.lockedItems[uniqueKey] || item.isInInvisibleBag;
+      return {
+        ...item,
+        uniqueKey,
+        isLocked,
+        lockReason: item.isInInvisibleBag ? 'invisible_bag' : (state.lockedItems[uniqueKey] ? 'manual' : null)
+      };
+    });
+  }, [state.items, state.lockedItems, getItemUniqueKey]);
+  
+  // Computed: locked items count per character
+  const lockedItemsStats = useMemo(() => {
+    const stats = { total: 0, byCharacter: {} };
+    itemsWithLockStatus.forEach(item => {
+      if (item.isLocked) {
+        stats.total++;
+        if (item.sourceName) {
+          stats.byCharacter[item.sourceName] = (stats.byCharacter[item.sourceName] || 0) + 1;
+        }
+      }
+    });
+    return stats;
+  }, [itemsWithLockStatus]);
+
   const value = {
     ...state,
     setApiKey,
@@ -160,7 +293,18 @@ export function InventoryProvider({ children }) {
     setSort,
     updateBagPlan,
     clearBagPlan,
-    logout
+    logout,
+    // NEW: Locking
+    toggleItemLock,
+    isItemLocked,
+    setLockedItems,
+    getItemUniqueKey,
+    itemsWithLockStatus,
+    lockedItemsStats,
+    // NEW: Material item limits
+    setMaterialItemLimit,
+    removeMaterialItemLimit,
+    getMaterialItemLimit
   };
   
   return <InventoryContext.Provider value={value}>{children}</InventoryContext.Provider>;
