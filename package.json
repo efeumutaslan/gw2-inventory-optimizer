@@ -1,7 +1,7 @@
 {
   "name": "gw2-inventory-manager",
   "private": true,
-  "version": "1.0.0",
+  "version": "2.3.0",
   "description": "Guild Wars 2 Inventory Manager - Optimize your inventory distribution across characters",
   "author": "Efe",
   "homepage": "https://github.com/USERNAME/gw2-inventory-manager",
@@ -13,9 +13,6 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@dnd-kit/core": "^6.3.1",
-    "@dnd-kit/sortable": "^10.0.0",
-    "@dnd-kit/utilities": "^3.2.2",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },

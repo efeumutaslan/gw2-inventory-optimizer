@@ -373,3 +373,270 @@ export function clearItemCache() {
   localStorage.removeItem(ITEMS_CACHE_KEY);
   localStorage.removeItem(MATERIALS_CACHE_KEY);
 }
+
+// ==================== PHASE 5-6: NEW API FUNCTIONS ====================
+
+// Account Unlocks (Wardrobe)
+export async function getAccountSkins(apiKey) {
+  try {
+    const response = await rateLimitedFetch(`${API_BASE}/account/skins?access_token=${apiKey}`);
+    if (!response.ok) return [];
+    return response.json();
+  } catch (e) {
+    console.warn('Failed to fetch account skins:', e);
+    return [];
+  }
+}
+
+export async function getAccountDyes(apiKey) {
+  try {
+    const response = await rateLimitedFetch(`${API_BASE}/account/dyes?access_token=${apiKey}`);
+    if (!response.ok) return [];
+    return response.json();
+  } catch (e) {
+    console.warn('Failed to fetch account dyes:', e);
+    return [];
+  }
+}
+
+export async function getAccountMinis(apiKey) {
+  try {
+    const response = await rateLimitedFetch(`${API_BASE}/account/minis?access_token=${apiKey}`);
+    if (!response.ok) return [];
+    return response.json();
+  } catch (e) {
+    console.warn('Failed to fetch account minis:', e);
+    return [];
+  }
+}
+
+export async function getAccountFinishers(apiKey) {
+  try {
+    const response = await rateLimitedFetch(`${API_BASE}/account/finishers?access_token=${apiKey}`);
+    if (!response.ok) return [];
+    return response.json();
+  } catch (e) {
+    console.warn('Failed to fetch account finishers:', e);
+    return [];
+  }
+}
+
+export async function getAccountOutfits(apiKey) {
+  try {
+    const response = await rateLimitedFetch(`${API_BASE}/account/outfits?access_token=${apiKey}`);
+    if (!response.ok) return [];
+    return response.json();
+  } catch (e) {
+    console.warn('Failed to fetch account outfits:', e);
+    return [];
+  }
+}
+
+// Account Wallet (for UFE, etc.)
+export async function getAccountWallet(apiKey) {
+  try {
+    const response = await rateLimitedFetch(`${API_BASE}/account/wallet?access_token=${apiKey}`);
+    if (!response.ok) return [];
+    return response.json();
+  } catch (e) {
+    console.warn('Failed to fetch account wallet:', e);
+    return [];
+  }
+}
+
+// Account Achievements
+export async function getAccountAchievements(apiKey) {
+  try {
+    const response = await rateLimitedFetch(`${API_BASE}/account/achievements?access_token=${apiKey}`);
+    if (!response.ok) return [];
+    return response.json();
+  } catch (e) {
+    console.warn('Failed to fetch account achievements:', e);
+    return [];
+  }
+}
+
+// Legendary Armory
+export async function getAccountLegendaryArmory(apiKey) {
+  try {
+    const response = await rateLimitedFetch(`${API_BASE}/account/legendaryarmory?access_token=${apiKey}`);
+    if (!response.ok) return [];
+    return response.json();
+  } catch (e) {
+    console.warn('Failed to fetch legendary armory:', e);
+    return [];
+  }
+}
+
+// Trading Post Prices
+export async function getCommercePrices(itemIds) {
+  if (!itemIds || itemIds.length === 0) return {};
+  
+  const batchSize = 200;
+  const prices = {};
+  
+  for (let i = 0; i < itemIds.length; i += batchSize) {
+    const batch = itemIds.slice(i, i + batchSize);
+    try {
+      const response = await rateLimitedFetch(`${API_BASE}/commerce/prices?ids=${batch.join(',')}`);
+      if (response.ok) {
+        const data = await response.json();
+        data.forEach(item => {
+          prices[item.id] = {
+            buys: item.buys?.unit_price || 0,
+            sells: item.sells?.unit_price || 0
+          };
+        });
+      }
+    } catch (e) {
+      console.warn('Failed to fetch commerce prices:', e);
+    }
+  }
+  
+  return prices;
+}
+
+// Get all account unlocks in one call
+export async function getAllAccountUnlocks(apiKey, onProgress) {
+  const progress = (step, detail) => {
+    if (onProgress) onProgress({ step, detail });
+  };
+  
+  progress('unlocks', 'Wardrobe verileri yükleniyor...');
+  
+  const [skins, dyes, minis, finishers, outfits, wallet, legendaryArmory] = await Promise.all([
+    getAccountSkins(apiKey),
+    getAccountDyes(apiKey),
+    getAccountMinis(apiKey),
+    getAccountFinishers(apiKey),
+    getAccountOutfits(apiKey),
+    getAccountWallet(apiKey),
+    getAccountLegendaryArmory(apiKey)
+  ]);
+  
+  return {
+    skins: new Set(skins),
+    dyes: new Set(dyes),
+    minis: new Set(minis),
+    finishers: new Set(finishers.map(f => f.id)),
+    outfits: new Set(outfits),
+    wallet: wallet.reduce((acc, w) => { acc[w.id] = w.value; return acc; }, {}),
+    legendaryArmory: new Set(legendaryArmory.map(l => l.id))
+  };
+}
+
+// Known item IDs for special handling
+export const SPECIAL_ITEMS = {
+  // Killproof items - DON'T consume these
+  LEGENDARY_INSIGHT: 77302,
+  LEGENDARY_DIVINATION: 88485,
+  UNSTABLE_COSMIC_ESSENCE: 81743,
+  
+  // Upgrade Extractor
+  UPGRADE_EXTRACTOR: 20349,
+  
+  // Salvage kits
+  COPPER_FED_SALVAGE: 44602,
+  SILVER_FED_SALVAGE: 19986,
+  RUNECRAFTER_SALVAGE: 67027,
+  
+  // Currency IDs (wallet)
+  CURRENCY_UFE: 59, // Unstable Fractal Essence
+  CURRENCY_LI: 70,  // Legendary Insight (wallet version)
+  
+  // Raid coffers (killproof containers) - don't open
+  RAID_COFFERS: [
+    78989, // Vale Guardian Coffer
+    79186, // Gorseval Coffer
+    78993, // Sabetha Coffer
+    80252, // Slothasor Coffer
+    80264, // Bandit Trio Coffer
+    80269, // Matthias Coffer
+    80557, // Escort Coffer
+    80623, // Keep Construct Coffer
+    80330, // Twisted Castle Coffer
+    80387, // Xera Coffer
+    81490, // Cairn Coffer
+    81462, // Mursaat Overseer Coffer
+    81225, // Samarog Coffer
+    81267, // Deimos Coffer
+    88543, // Soulless Horror Coffer
+    88866, // River of Souls Coffer
+    88945, // Statues of Grenth Coffer
+    88701, // Voice/Claw Coffer
+    91270, // Conjured Amalgamate Coffer
+    91246, // Twin Largos Coffer
+    91175, // Qadim Coffer
+    91838, // Cardinal Adina Coffer
+    91764, // Cardinal Sabir Coffer
+    91781, // Qadim the Peerless Coffer
+  ]
+};
+
+// Check if item is tradeable on TP
+export function isTradeableOnTP(item) {
+  const flags = item.flags || [];
+  return !flags.includes('AccountBound') && 
+         !flags.includes('SoulboundOnAcquire') && 
+         !flags.includes('NoSell') &&
+         !flags.includes('MonsterOnly');
+}
+
+// Check if item can be sold to vendor
+export function canSellToVendor(item) {
+  const flags = item.flags || [];
+  return !flags.includes('NoSell') && (item.vendorValue || 0) > 0;
+}
+
+// Check if item unlocks something
+export function getUnlockType(item) {
+  // Skins
+  if (item.default_skin) return { type: 'skin', id: item.default_skin };
+  
+  // Minis
+  if (item.type === 'MiniPet' && item.details?.minipet_id) {
+    return { type: 'mini', id: item.details.minipet_id };
+  }
+  
+  // Dyes (Unidentified Dye or specific dye items)
+  if (item.type === 'Consumable' && item.details?.type === 'Unlock' && item.details?.unlock_type === 'Dye') {
+    return { type: 'dye', id: item.details.color_id };
+  }
+  
+  // Finishers
+  if (item.type === 'Consumable' && item.details?.type === 'Unlock' && item.details?.unlock_type === 'Content') {
+    return { type: 'finisher', id: item.id };
+  }
+  
+  // Outfits
+  if (item.type === 'Consumable' && item.details?.type === 'Unlock' && item.details?.unlock_type === 'Outfit') {
+    return { type: 'outfit', id: item.details.id };
+  }
+  
+  return null;
+}
+
+// Get equipment upgrades (runes/sigils)
+export function getEquipmentUpgrades(item) {
+  if (!item.details) return [];
+  
+  const upgrades = [];
+  
+  // Infusions
+  if (item.details.infusion_slots) {
+    item.details.infusion_slots.forEach(slot => {
+      if (slot.item_id) {
+        upgrades.push({ type: 'infusion', id: slot.item_id });
+      }
+    });
+  }
+  
+  // Upgrade component (rune/sigil)
+  if (item.upgrades) {
+    item.upgrades.forEach(id => {
+      upgrades.push({ type: 'upgrade', id });
+    });
+  }
+  
+  return upgrades;
+}

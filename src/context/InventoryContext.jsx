@@ -30,13 +30,10 @@ const initialState = {
   filters: { category: 'all', subCategory: null, rarities: [], sources: [], search: '' },
   sortBy: 'rarity',
   sortOrder: 'desc',
-  bagPlan: JSON.parse(localStorage.getItem('gw2_bag_plan') || '[]'),
   stats: { totalItems: 0, uniqueItems: 0, bySource: {}, byRarity: {} },
   materialStorageUsedSlots: 0,
-  // NEW: Locked items system
-  lockedItems: loadLockedItems(), // { "uniqueKey": true }
-  // NEW: Per-item material limits
-  materialItemLimits: loadMaterialItemLimits() // { "itemId": maxAmount }
+  lockedItems: loadLockedItems(),
+  materialItemLimits: loadMaterialItemLimits()
 };
 
 const ACTIONS = {
@@ -47,13 +44,9 @@ const ACTIONS = {
   SET_ITEMS: 'SET_ITEMS',
   SET_FILTERS: 'SET_FILTERS',
   SET_SORT: 'SET_SORT',
-  UPDATE_BAG_PLAN: 'UPDATE_BAG_PLAN',
-  CLEAR_BAG_PLAN: 'CLEAR_BAG_PLAN',
   RESET: 'RESET',
-  // NEW: Locking system
   TOGGLE_ITEM_LOCK: 'TOGGLE_ITEM_LOCK',
   SET_LOCKED_ITEMS: 'SET_LOCKED_ITEMS',
-  // NEW: Per-item material limits
   SET_MATERIAL_ITEM_LIMIT: 'SET_MATERIAL_ITEM_LIMIT',
   REMOVE_MATERIAL_ITEM_LIMIT: 'REMOVE_MATERIAL_ITEM_LIMIT'
 };
@@ -100,20 +93,10 @@ function inventoryReducer(state, action) {
     case ACTIONS.SET_SORT:
       return { ...state, sortBy: action.payload.sortBy ?? state.sortBy, sortOrder: action.payload.sortOrder ?? state.sortOrder };
     
-    case ACTIONS.UPDATE_BAG_PLAN:
-      localStorage.setItem('gw2_bag_plan', JSON.stringify(action.payload));
-      return { ...state, bagPlan: action.payload };
-    
-    case ACTIONS.CLEAR_BAG_PLAN:
-      localStorage.removeItem('gw2_bag_plan');
-      return { ...state, bagPlan: [] };
-    
     case ACTIONS.RESET:
       localStorage.removeItem('gw2_api_key');
-      localStorage.removeItem('gw2_bag_plan');
       return { ...initialState, apiKey: null };
     
-    // NEW: Locking system
     case ACTIONS.TOGGLE_ITEM_LOCK: {
       const { uniqueKey, locked } = action.payload;
       const newLockedItems = { ...state.lockedItems };
@@ -161,7 +144,7 @@ export function InventoryProvider({ children }) {
   }, []);
   
   const validateAndSetKey = useCallback(async (key) => {
-    dispatch({ type: ACTIONS.SET_LOADING, payload: { loading: true, message: 'API Key doğrulanıyor...' } });
+    dispatch({ type: ACTIONS.SET_LOADING, payload: { loading: true, message: '' } });
     try {
       const result = await validateToken(key);
       if (result.valid) {
@@ -181,7 +164,7 @@ export function InventoryProvider({ children }) {
   
   const loadInventory = useCallback(async () => {
     if (!state.apiKey) return;
-    dispatch({ type: ACTIONS.SET_LOADING, payload: { loading: true, message: 'Envanter yükleniyor...' } });
+    dispatch({ type: ACTIONS.SET_LOADING, payload: { loading: true, message: '' } });
     try {
       const data = await getAllInventoryData(state.apiKey, ({ detail }) => {
         dispatch({ type: ACTIONS.SET_LOADING, payload: { loading: true, message: detail } });
@@ -198,14 +181,6 @@ export function InventoryProvider({ children }) {
   
   const setSort = useCallback((sortBy, sortOrder) => {
     dispatch({ type: ACTIONS.SET_SORT, payload: { sortBy, sortOrder } });
-  }, []);
-  
-  const updateBagPlan = useCallback((plan) => {
-    dispatch({ type: ACTIONS.UPDATE_BAG_PLAN, payload: plan });
-  }, []);
-  
-  const clearBagPlan = useCallback(() => {
-    dispatch({ type: ACTIONS.CLEAR_BAG_PLAN });
   }, []);
   
   const logout = useCallback(() => {
@@ -284,6 +259,31 @@ export function InventoryProvider({ children }) {
     return stats;
   }, [itemsWithLockStatus]);
 
+  // Bulk lock functions
+  const lockAllFiltered = useCallback((filteredItems) => {
+    const newLocks = { ...state.lockedItems };
+    filteredItems.forEach(item => {
+      if (!item.isInInvisibleBag) { // Don't manually lock invisible bag items
+        const key = getItemUniqueKey(item);
+        newLocks[key] = true;
+      }
+    });
+    dispatch({ type: ACTIONS.SET_LOCKED_ITEMS, payload: newLocks });
+  }, [state.lockedItems, getItemUniqueKey]);
+  
+  const unlockAllFiltered = useCallback((filteredItems) => {
+    const newLocks = { ...state.lockedItems };
+    filteredItems.forEach(item => {
+      const key = getItemUniqueKey(item);
+      delete newLocks[key];
+    });
+    dispatch({ type: ACTIONS.SET_LOCKED_ITEMS, payload: newLocks });
+  }, [state.lockedItems, getItemUniqueKey]);
+  
+  const clearAllManualLocks = useCallback(() => {
+    dispatch({ type: ACTIONS.SET_LOCKED_ITEMS, payload: {} });
+  }, []);
+
   const value = {
     ...state,
     setApiKey,
@@ -291,17 +291,16 @@ export function InventoryProvider({ children }) {
     loadInventory,
     setFilters,
     setSort,
-    updateBagPlan,
-    clearBagPlan,
     logout,
-    // NEW: Locking
     toggleItemLock,
     isItemLocked,
     setLockedItems,
     getItemUniqueKey,
     itemsWithLockStatus,
     lockedItemsStats,
-    // NEW: Material item limits
+    lockAllFiltered,
+    unlockAllFiltered,
+    clearAllManualLocks,
     setMaterialItemLimit,
     removeMaterialItemLimit,
     getMaterialItemLimit

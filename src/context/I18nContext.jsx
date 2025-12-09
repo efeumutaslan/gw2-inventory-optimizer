@@ -19,7 +19,6 @@ const translations = {
     // Navigation
     nav_inventory: 'Envanter',
     nav_optimization: 'Optimizasyon',
-    nav_bags: 'Çanta Planlama',
     nav_recommendations: 'Öneriler',
     
     // API Key Screen
@@ -116,6 +115,7 @@ const translations = {
     ms_deposit_tip: 'Oyunda: Sağ tık → "Deposit Material" veya çanta → "Deposit All Materials"',
     ms_to_existing_slot: 'Mevcut slot\'a',
     ms_new_slot: 'Yeni slot',
+    ms_per_item_limits: 'Item Başına Limit',
     
     // Character Slots
     char_slots_title: 'Karakter Slot Ayarları',
@@ -206,7 +206,6 @@ const translations = {
     // Navigation
     nav_inventory: 'Inventory',
     nav_optimization: 'Optimization',
-    nav_bags: 'Bag Planning',
     nav_recommendations: 'Recommendations',
     
     // API Key Screen
@@ -303,6 +302,7 @@ const translations = {
     ms_deposit_tip: 'In-game: Right-click → "Deposit Material" or bag → "Deposit All Materials"',
     ms_to_existing_slot: 'To existing slot',
     ms_new_slot: 'New slot',
+    ms_per_item_limits: 'Per-Item Limits',
     
     // Character Slots
     char_slots_title: 'Character Slot Settings',

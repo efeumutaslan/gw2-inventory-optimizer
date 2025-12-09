@@ -10,9 +10,10 @@ import {
 } from '../utils/optimization';
 import { RARITY_COLORS } from '../utils/categories';
 import TransferPlanView from './TransferPlanView';
+import MaterialItemLimitsEditor from './MaterialItemLimitsEditor';
 
 // Material Storage Stack Limit Input with Fill Limit
-function MaterialStorageLimitInput({ stackLimit, fillLimit, usedSlots, totalEligibleTypes, lockedCount, onStackLimitChange, onFillLimitChange, t }) {
+function MaterialStorageLimitInput({ stackLimit, fillLimit, usedSlots, totalEligibleTypes, lockedCount, onStackLimitChange, onFillLimitChange, onOpenItemLimits, t }) {
   const stackPresets = [250, 500, 750, 1000, 1500, 2000, 2750];
   const [useFillLimit, setUseFillLimit] = useState(fillLimit !== null);
   
@@ -138,6 +139,17 @@ function MaterialStorageLimitInput({ stackLimit, fillLimit, usedSlots, totalElig
         )}
         <p className="text-xs text-gray-600">{t('ms_determined_by_gw2')}</p>
       </div>
+      
+      {/* Per-item limits button */}
+      {onOpenItemLimits && (
+        <button
+          onClick={onOpenItemLimits}
+          className="w-full py-2 px-3 bg-gw2-darker/50 hover:bg-gw2-darker text-sm text-gray-300 hover:text-orange-400 rounded-lg border border-gray-700 hover:border-orange-500/30 transition-colors flex items-center justify-center gap-2"
+        >
+          <span>🎛️</span>
+          {t('ms_per_item_limits') || 'Per-Item Limits'}
+        </button>
+      )}
     </div>
   );
 }
@@ -601,6 +613,7 @@ export default function OptimizationPanel() {
   const [expandedChars, setExpandedChars] = useState({});
   const [showSuggestions, setShowSuggestions] = useState(true);
   const [showTransferPlan, setShowTransferPlan] = useState(false);
+  const [showItemLimitsEditor, setShowItemLimitsEditor] = useState(false);
   
   // Filter out locked items for optimization
   const unlockedItems = useMemo(() => {
@@ -725,6 +738,7 @@ export default function OptimizationPanel() {
           lockedCount={lockedItemsStats.total}
           onStackLimitChange={setStackLimit}
           onFillLimitChange={setFillLimit}
+          onOpenItemLimits={() => setShowItemLimitsEditor(true)}
           t={t}
         />
         
@@ -911,6 +925,14 @@ export default function OptimizationPanel() {
         <TransferPlanView 
           report={distributionResult} 
           onClose={() => setShowTransferPlan(false)} 
+        />
+      )}
+      
+      {/* Per-Item Limits Editor Modal */}
+      {showItemLimitsEditor && (
+        <MaterialItemLimitsEditor
+          stackLimit={stackLimit}
+          onClose={() => setShowItemLimitsEditor(false)}
         />
       )}
     </div>
