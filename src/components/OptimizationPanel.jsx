@@ -14,7 +14,7 @@ import MaterialItemLimitsEditor from './MaterialItemLimitsEditor';
 
 // Material Storage Stack Limit Input with Fill Limit
 function MaterialStorageLimitInput({ stackLimit, fillLimit, usedSlots, totalEligibleTypes, lockedCount, onStackLimitChange, onFillLimitChange, onOpenItemLimits, t }) {
-  const stackPresets = [250, 500, 750, 1000, 1500, 2000, 2750];
+  const stackPresets = [250, 500, 1000, 1500, 2000, 2500, 3000];
   const [useFillLimit, setUseFillLimit] = useState(fillLimit !== null);
   
   const handleFillLimitToggle = (enabled) => {
@@ -41,10 +41,10 @@ function MaterialStorageLimitInput({ stackLimit, fillLimit, usedSlots, totalElig
             <input
               type="number"
               min="250"
-              max="2750"
+              max="3000"
               step="250"
               value={stackLimit}
-              onChange={(e) => onStackLimitChange(Math.max(250, Math.min(2750, parseInt(e.target.value) || 250)))}
+              onChange={(e) => onStackLimitChange(Math.max(250, Math.min(3000, parseInt(e.target.value) || 250)))}
               className="input-field w-20 text-center text-sm"
             />
           </div>

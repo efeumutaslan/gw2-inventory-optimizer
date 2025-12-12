@@ -7,7 +7,7 @@ import { CATEGORIES, classifyItem } from './categories';
  * Analyze items that can potentially go to Material Storage
  * CRITICAL: 
  * 1. Same item ID across multiple characters = SINGLE slot in Material Storage
- * 2. Each item type has a STACK LIMIT (default 250, max 2000 with expanders)
+ * 2. Each item type has a STACK LIMIT (default 250, max 3000 with expanders)
  * 3. Only items with canGoToMaterialStorage=true can be stored
  * 4. Locked items (including invisible bag items) are excluded
  * 
@@ -275,7 +275,7 @@ export function analyzeMaterialStorageItems(items, stackLimit = 250, materialIte
  * Select which items to send to Material Storage based on stack limit
  * Note: Slot limit is not needed - GW2 API determines which items can go to Material Storage
  * @param items - All inventory items (with isLocked property)
- * @param stackLimit - Global per-item stack limit (250-2750)
+ * @param stackLimit - Global per-item stack limit (250-3000)
  * @param materialItemLimits - Per-item custom limits { itemId: maxAmount }
  */
 export function selectItemsForMaterialStorage(items, stackLimit = 250, materialItemLimits = {}) {

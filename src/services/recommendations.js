@@ -28,21 +28,66 @@ export const RECOMMENDATION_TYPES = {
   WARNING: 'warning',           // Warning about item
 };
 
-// Known valuable salvage items
+// Known valuable salvage items - prioritize these for good salvage kits
 const VALUABLE_SALVAGE_ITEMS = {
   // Exotic gear often has valuable inscriptions/insignia
   // Ascended gear gives stabilizing matrices
 };
 
-// Items that look like junk but aren't
+// Items that look like junk but aren't - NEVER destroy or sell to vendor
 const DECEPTIVE_ITEMS = new Set([
+  // Ascended crafting materials (converter/gobbler inputs)
   68646, // Dragonite Ore
   68645, // Empyreal Fragment  
   68642, // Pile of Bloodstone Dust
+  
+  // Mists essences (Fractal crafting)
   79230, // Glob of Coagulated Mists Essence
   79469, // Shard of Crystallized Mists Essence
   79899, // Chunk of Crystallized Mists Essence
+  
+  // Valuable currencies that look like items
+  20796, // Fractal Relic
+  75919, // Pristine Fractal Relic
+  94020, // Unstable Fractal Essence
+  
+  // Spirit Shards (legendary crafting)
+  20820, // Spirit Shard
+  
+  // Map currencies
+  79280, // Unbound Magic
+  86069, // Volatile Magic
+  
+  // Obsidian (legendary crafting)
+  19925, // Obsidian Shard
 ]);
+
+// Unidentified gear items - special handling
+const UNIDENTIFIED_GEAR = new Set([
+  79048, // Common Unidentified Gear (Blue)
+  79049, // Piece of Unidentified Gear (Green)
+  79050, // Rare Unidentified Gear (Yellow)
+]);
+
+// Valuable containers that should be opened, not sold/destroyed
+const VALUABLE_CONTAINERS = new Set([
+  // Fractal encryptions
+  75919, // Cracked Fractal Encryption
+  
+  // Map reward containers
+  78122, // Bag of Gear
+  
+  // Living World containers
+  79469, // Difluorite Crystal
+  86069, // Volatile Magic container
+]);
+
+// Items for converters/gobblers - don't recommend selling if under certain amounts
+const CONVERTER_MATERIALS = {
+  68642: { name: 'Bloodstone Dust', neededFor: 'Mawdrey II, Herta', minKeep: 250 },
+  68646: { name: 'Dragonite Ore', neededFor: 'Princess, Sentient Aberration', minKeep: 250 },
+  68645: { name: 'Empyreal Fragment', neededFor: 'Star of Gratitude, Sentient Anomaly', minKeep: 250 },
+};
 
 // Holiday/Event items that might be valuable later
 const SEASONAL_ITEMS_KEYWORDS = [
@@ -348,7 +393,24 @@ function analyzeItem(item, unlocks, prices, options) {
     };
   }
   
-  // 9. Crafting materials that can go to Material Storage
+  // 9. Unidentified gear - special handling
+  if (UNIDENTIFIED_GEAR.has(item.id)) {
+    const gearType = {
+      79048: { name: 'Common (Blue)', tip: 'Open or sell on TP - chance for higher rarity' },
+      79049: { name: 'Masterwork (Green)', tip: 'Open first - chance for Rare/Exotic' },
+      79050: { name: 'Rare (Yellow)', tip: 'ALWAYS open first - chance for Exotic!' }
+    }[item.id];
+    
+    return {
+      type: RECOMMENDATION_TYPES.CONSUME,
+      item,
+      priority: PRIORITY[RECOMMENDATION_TYPES.CONSUME] - 1, // Higher priority
+      message: `Unidentified Gear (${gearType.name}): ${gearType.tip}`,
+      important: item.id === 79050 // Yellow unid is important
+    };
+  }
+  
+  // 10. Crafting materials that can go to Material Storage
   if (item.type === 'CraftingMaterial' && item.canGoToMaterialStorage) {
     return {
       type: RECOMMENDATION_TYPES.DEPOSIT,
@@ -358,13 +420,36 @@ function analyzeItem(item, unlocks, prices, options) {
     };
   }
   
-  // 10. Deceptive items that look like junk but aren't
+  // 11. Converter/Gobbler input materials
+  const converterMat = CONVERTER_MATERIALS[item.id];
+  if (converterMat) {
+    return {
+      type: RECOMMENDATION_TYPES.WARNING,
+      item,
+      priority: PRIORITY[RECOMMENDATION_TYPES.WARNING] + 1, // Slightly lower than critical warnings
+      message: `${converterMat.name} - use with ${converterMat.neededFor}. Keep for daily conversions!`,
+      warning: true
+    };
+  }
+  
+  // 12. Deceptive items that look like junk but aren't
   if (DECEPTIVE_ITEMS.has(item.id)) {
+    const deceptiveMessages = {
+      68646: 'Dragonite Ore - converter material, don\'t destroy!',
+      68645: 'Empyreal Fragment - converter material, don\'t destroy!',
+      68642: 'Bloodstone Dust - converter material, don\'t destroy!',
+      79230: 'Mists Essence - Fractal crafting material!',
+      79469: 'Mists Essence - valuable Fractal material!',
+      79899: 'Mists Essence - valuable Fractal material!',
+      20820: 'Spirit Shard - legendary crafting currency!',
+      19925: 'Obsidian Shard - legendary crafting material!',
+    };
+    
     return {
       type: RECOMMENDATION_TYPES.WARNING,
       item,
       priority: PRIORITY[RECOMMENDATION_TYPES.WARNING],
-      message: 'Looks like junk but is valuable! Keep or use.',
+      message: deceptiveMessages[item.id] || 'Valuable material - don\'t sell to vendor!',
       warning: true
     };
   }
