@@ -6,7 +6,9 @@ import {
   isTradeableOnTP, 
   canSellToVendor, 
   getUnlockType,
-  getEquipmentUpgrades 
+  getEquipmentUpgrades,
+  isLegendaryCraftingMaterial,
+  getLegendaryMaterialCategory
 } from './gw2Api';
 
 // Recommendation types
@@ -16,6 +18,7 @@ export const RECOMMENDATION_TYPES = {
   USE_UNLOCK: 'use_unlock',     // Use to unlock skin/dye/mini
   DESTROY: 'destroy',           // Safe to destroy (already unlocked)
   KEEP_KILLPROOF: 'keep_kp',    // Keep for killproof
+  KEEP_LEGENDARY: 'keep_leg',   // Keep for legendary crafting
   EXTRACT_UPGRADE: 'extract',   // Extract rune/sigil
   SALVAGE: 'salvage',           // Salvage for materials
   STACK: 'stack',               // Merge incomplete stacks
@@ -69,6 +72,7 @@ const PRIORITY = {
   [RECOMMENDATION_TYPES.STACK]: 8,
   [RECOMMENDATION_TYPES.CONSUME]: 9,
   [RECOMMENDATION_TYPES.KEEP_KILLPROOF]: 10,
+  [RECOMMENDATION_TYPES.KEEP_LEGENDARY]: 10,
   [RECOMMENDATION_TYPES.KEEP]: 11,
 };
 
@@ -161,7 +165,33 @@ function analyzeItem(item, unlocks, prices, options) {
     };
   }
   
-  // 2. Junk items - sell to vendor
+  // 2. Legendary crafting materials - NEVER salvage or sell
+  if (isLegendaryCraftingMaterial(item)) {
+    const category = getLegendaryMaterialCategory(item);
+    const categoryMessages = {
+      'core': 'Core legendary material (Mystic Coin, Ecto, Clover)',
+      't6_fine': 'T6 Fine Material - needed for Gift of Magic/Might',
+      't5_fine': 'T5 Fine Material - can be promoted to T6',
+      'lodestone': 'Lodestone - needed for legendary weapon gifts',
+      'core_mat': 'Core - can be promoted to Lodestone',
+      'ascended': 'Ascended crafting material (time-gated)',
+      't6_common': 'T6 Common Material - needed for ascended/legendary',
+      'gift': 'Gift component - needed for legendary crafting',
+      'precursor': 'Precursor weapon - needed to craft legendary!'
+    };
+    
+    return {
+      type: RECOMMENDATION_TYPES.KEEP_LEGENDARY,
+      item,
+      priority: PRIORITY[RECOMMENDATION_TYPES.KEEP_LEGENDARY],
+      message: categoryMessages[category] || 'Legendary crafting material - do not sell or salvage!',
+      category,
+      warning: category === 'precursor', // Extra warning for precursors
+      important: true
+    };
+  }
+  
+  // 3. Junk items - sell to vendor
   if (item.rarity === 'Junk') {
     return {
       type: RECOMMENDATION_TYPES.SELL_VENDOR,
@@ -478,6 +508,7 @@ export function getRecommendationLabel(type, language = 'en') {
       [RECOMMENDATION_TYPES.KEEP]: 'Keep',
       [RECOMMENDATION_TYPES.DEPOSIT]: 'Deposit',
       [RECOMMENDATION_TYPES.WARNING]: 'Warning',
+      [RECOMMENDATION_TYPES.KEEP_LEGENDARY]: 'Legendary Mat',
     },
     tr: {
       [RECOMMENDATION_TYPES.SELL_TP]: 'TP\'de Sat',
@@ -485,6 +516,7 @@ export function getRecommendationLabel(type, language = 'en') {
       [RECOMMENDATION_TYPES.USE_UNLOCK]: 'Aç',
       [RECOMMENDATION_TYPES.DESTROY]: 'Yok Et',
       [RECOMMENDATION_TYPES.KEEP_KILLPROOF]: 'Killproof',
+      [RECOMMENDATION_TYPES.KEEP_LEGENDARY]: 'Legendary Malz.',
       [RECOMMENDATION_TYPES.EXTRACT_UPGRADE]: 'Çıkar',
       [RECOMMENDATION_TYPES.SALVAGE]: 'Salvage',
       [RECOMMENDATION_TYPES.STACK]: 'Birleştir',
@@ -508,6 +540,7 @@ export function getRecommendationColor(type) {
     [RECOMMENDATION_TYPES.USE_UNLOCK]: '#00FF00',   // Green
     [RECOMMENDATION_TYPES.DESTROY]: '#FF4444',      // Red
     [RECOMMENDATION_TYPES.KEEP_KILLPROOF]: '#FF00FF', // Magenta
+    [RECOMMENDATION_TYPES.KEEP_LEGENDARY]: '#FFA500', // Orange (legendary)
     [RECOMMENDATION_TYPES.EXTRACT_UPGRADE]: '#00BFFF', // Blue
     [RECOMMENDATION_TYPES.SALVAGE]: '#FFA500',      // Orange
     [RECOMMENDATION_TYPES.STACK]: '#9370DB',        // Purple

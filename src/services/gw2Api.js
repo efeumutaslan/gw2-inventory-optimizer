@@ -544,6 +544,127 @@ export const SPECIAL_ITEMS = {
   CURRENCY_UFE: 59, // Unstable Fractal Essence
   CURRENCY_LI: 70,  // Legendary Insight (wallet version)
   
+  // ===== LEGENDARY CRAFTING MATERIALS =====
+  // These should NEVER be recommended to salvage or sell
+  
+  // Core Legendary Materials
+  LEGENDARY_CRAFTING_CORE: [
+    19976,  // Mystic Coin
+    19721,  // Glob of Ectoplasm
+    19675,  // Mystic Clover
+    19925,  // Obsidian Shard
+    19952,  // Bloodstone Shard
+    68063,  // Amalgamated Gemstone
+  ],
+  
+  // T6 Fine Materials (Gift of Magic & Gift of Might - need 250 each)
+  T6_FINE_MATERIALS: [
+    24295,  // Vial of Powerful Blood
+    24351,  // Vicious Claw
+    24358,  // Ancient Bone
+    24277,  // Pile of Crystalline Dust
+    24357,  // Vicious Fang
+    24289,  // Armored Scale
+    24300,  // Elaborate Totem
+    24283,  // Powerful Venom Sac
+  ],
+  
+  // T5 Fine Materials (can be promoted to T6)
+  T5_FINE_MATERIALS: [
+    24294,  // Vial of Potent Blood
+    24350,  // Large Claw
+    24341,  // Large Bone
+    24276,  // Pile of Incandescent Dust
+    24356,  // Large Fang
+    24288,  // Large Scale
+    24299,  // Intricate Totem
+    24282,  // Potent Venom Sac
+  ],
+  
+  // Lodestones (need 100 for most legendaries)
+  LODESTONES: [
+    24305,  // Charged Lodestone
+    24310,  // Onyx Lodestone
+    24304,  // Glacial Lodestone
+    24303,  // Molten Lodestone
+    24306,  // Destroyer Lodestone
+    24302,  // Corrupted Lodestone
+    24309,  // Crystal Lodestone
+    24307,  // Evergreen Lodestone
+    46738,  // Mordrem Lodestone
+  ],
+  
+  // Cores (can be promoted to Lodestones)
+  CORES: [
+    24298,  // Charged Core
+    24314,  // Onyx Core
+    24327,  // Glacial Core
+    24326,  // Molten Core
+    24329,  // Destroyer Core
+    24325,  // Corrupted Core
+    24328,  // Crystal Core
+    24330,  // Evergreen Core
+    46736,  // Mordrem Core
+  ],
+  
+  // Ascended Materials (T7) - time-gated
+  ASCENDED_MATERIALS: [
+    46742,  // Deldrimor Steel Ingot
+    46745,  // Elonian Leather Square
+    46740,  // Bolt of Damask
+    46744,  // Spiritwood Plank
+    46747,  // Lump of Mithrillium (daily)
+    46748,  // Glob of Elder Spirit Residue (daily)
+    46749,  // Spool of Thick Elonian Cord (daily)
+    46746,  // Spool of Silk Weaving Thread (daily)
+  ],
+  
+  // T6 Common Materials (for Ascended crafting)
+  T6_COMMON_MATERIALS: [
+    19721,  // Glob of Ectoplasm (also core)
+    19737,  // Orichalcum Ore
+    19701,  // Orichalcum Ingot
+    19745,  // Ancient Wood Log
+    19712,  // Ancient Wood Plank
+    19748,  // Hardened Leather Section
+    19729,  // Cured Hardened Leather Square
+    19746,  // Gossamer Scrap
+    19745,  // Bolt of Gossamer
+  ],
+  
+  // Gift Components & Special Items
+  GIFT_COMPONENTS: [
+    19678,  // Gift of Exploration (actually currency)
+    19677,  // Gift of Battle
+    71581,  // Gift of Maguuma Mastery
+    80332,  // Gift of Desert Mastery
+    97509,  // Gift of Jade Mastery
+  ],
+  
+  // Precursor Weapons (Gen 1 - tradeable exotics worth 100s of gold)
+  PRECURSOR_WEAPONS: [
+    29169,  // Dawn (Sunrise)
+    29185,  // Dusk (Twilight)
+    29180,  // Zap (Bolt)
+    29181,  // The Legend (The Bifrost)
+    29167,  // Storm (Meteorlogicus)
+    29168,  // The Chosen (The Minstrel)
+    29166,  // Rage (The Moot)
+    29184,  // The Hunter (The Predator)
+    29183,  // Spark (Incinerator)
+    29175,  // The Lover (The Dreamer)
+    29182,  // Rodgort's Flame (Rodgort)
+    29177,  // Leaf of Kudzu (Kudzu)
+    29170,  // Tooth of Frostfang (Frostfang)
+    29176,  // Howl (Howler)
+    29178,  // The Bard (The Minstrel variant?)
+    29179,  // Chaos Gun (Quip)
+    29171,  // Colossus (The Juggernaut)
+    30699,  // Venom (Kamohoali'i Kotaki - underwater)
+    30698,  // Kraitkin precursor
+    30697,  // Shark precursor (Frenzy)
+  ],
+  
   // Raid coffers (killproof containers) - don't open
   RAID_COFFERS: [
     78989, // Vale Guardian Coffer
@@ -572,6 +693,44 @@ export const SPECIAL_ITEMS = {
     91781, // Qadim the Peerless Coffer
   ]
 };
+
+// Build a Set of all legendary crafting material IDs for fast lookup
+const LEGENDARY_MATERIAL_IDS = new Set([
+  ...SPECIAL_ITEMS.LEGENDARY_CRAFTING_CORE,
+  ...SPECIAL_ITEMS.T6_FINE_MATERIALS,
+  ...SPECIAL_ITEMS.T5_FINE_MATERIALS,
+  ...SPECIAL_ITEMS.LODESTONES,
+  ...SPECIAL_ITEMS.CORES,
+  ...SPECIAL_ITEMS.ASCENDED_MATERIALS,
+  ...SPECIAL_ITEMS.T6_COMMON_MATERIALS,
+  ...SPECIAL_ITEMS.GIFT_COMPONENTS,
+  ...SPECIAL_ITEMS.PRECURSOR_WEAPONS,
+]);
+
+// Check if item is a legendary crafting material
+export function isLegendaryCraftingMaterial(item) {
+  if (!item) return false;
+  const itemId = typeof item === 'number' ? item : item.id;
+  return LEGENDARY_MATERIAL_IDS.has(itemId);
+}
+
+// Get legendary material category
+export function getLegendaryMaterialCategory(item) {
+  if (!item) return null;
+  const itemId = typeof item === 'number' ? item : item.id;
+  
+  if (SPECIAL_ITEMS.LEGENDARY_CRAFTING_CORE.includes(itemId)) return 'core';
+  if (SPECIAL_ITEMS.T6_FINE_MATERIALS.includes(itemId)) return 't6_fine';
+  if (SPECIAL_ITEMS.T5_FINE_MATERIALS.includes(itemId)) return 't5_fine';
+  if (SPECIAL_ITEMS.LODESTONES.includes(itemId)) return 'lodestone';
+  if (SPECIAL_ITEMS.CORES.includes(itemId)) return 'core_mat';
+  if (SPECIAL_ITEMS.ASCENDED_MATERIALS.includes(itemId)) return 'ascended';
+  if (SPECIAL_ITEMS.T6_COMMON_MATERIALS.includes(itemId)) return 't6_common';
+  if (SPECIAL_ITEMS.GIFT_COMPONENTS.includes(itemId)) return 'gift';
+  if (SPECIAL_ITEMS.PRECURSOR_WEAPONS.includes(itemId)) return 'precursor';
+  
+  return null;
+}
 
 // Check if item is tradeable on TP
 export function isTradeableOnTP(item) {
