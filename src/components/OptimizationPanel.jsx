@@ -155,17 +155,24 @@ function MaterialStorageLimitInput({ stackLimit, fillLimit, usedSlots, totalElig
 }
 
 // Character slot input
-function CharacterSlotInput({ character, index, onChange, onRemove, canRemove }) {
+function CharacterSlotInput({ character, index, onChange, onRemove, canRemove, isFromApi }) {
   return (
     <div className="flex items-center gap-2 p-3 bg-gw2-darker/50 rounded-lg border border-gray-700">
       <div className="flex-1">
-        <input
-          type="text"
-          value={character.name}
-          onChange={(e) => onChange(index, { ...character, name: e.target.value })}
-          placeholder={`Karakter ${index + 1}`}
-          className="input-field text-sm mb-2"
-        />
+        <div className="flex items-center gap-2 mb-2">
+          <input
+            type="text"
+            value={character.name}
+            onChange={(e) => onChange(index, { ...character, name: e.target.value })}
+            placeholder={`Karakter ${index + 1}`}
+            className="input-field text-sm flex-1"
+          />
+          {isFromApi && (
+            <span className="text-xs text-green-400 bg-green-500/10 px-2 py-0.5 rounded" title="API'den alındı">
+              ✓ API
+            </span>
+          )}
+        </div>
         <div className="flex items-center gap-2">
           <label className="text-xs text-gray-400">Slot:</label>
           <input
@@ -568,13 +575,15 @@ function StackLimitExceededSection({ items, stackLimit }) {
 
 // Main Component
 export default function OptimizationPanel() {
-  const { items, itemsWithLockStatus, lockedItemsStats, characters: gameCharacters } = useInventory();
+  const { items, itemsWithLockStatus, lockedItemsStats, characters: gameCharacters, accountSettings } = useInventory();
   const { t } = useTranslation();
   
-  // Material Storage stack limit per item (saved to localStorage)
+  // Material Storage stack limit per item (use accountSettings if available, otherwise localStorage)
   const [stackLimit, setStackLimit] = useState(() => {
     const saved = localStorage.getItem('gw2_material_stack_limit');
-    return saved ? parseInt(saved) : 250;
+    if (saved) return parseInt(saved);
+    // Use account settings default if available
+    return accountSettings?.materialStorageLimit || 250;
   });
   
   // Material Storage fill limit (how much to fill, not max capacity)
@@ -582,6 +591,13 @@ export default function OptimizationPanel() {
     const saved = localStorage.getItem('gw2_material_fill_limit');
     return saved ? parseInt(saved) : null; // null means use stackLimit
   });
+  
+  // Sync stackLimit with accountSettings.materialStorageLimit on first load
+  useEffect(() => {
+    if (accountSettings?.materialStorageLimit && !localStorage.getItem('gw2_material_stack_limit')) {
+      setStackLimit(accountSettings.materialStorageLimit);
+    }
+  }, [accountSettings?.materialStorageLimit]);
   
   // Save limits to localStorage
   useEffect(() => {
@@ -596,10 +612,22 @@ export default function OptimizationPanel() {
     }
   }, [fillLimit]);
   
-  // Character slots
+  // Helper function to get character bag slots from API data
+  const getCharacterBagSlots = (charName) => {
+    const bagInfo = accountSettings?.characterBagInfo?.[charName];
+    if (bagInfo && bagInfo.totalSlots > 0) {
+      return bagInfo.totalSlots;
+    }
+    return 100; // Default fallback if API data not available
+  };
+  
+  // Character slots - use API data when available
   const [characterSlots, setCharacterSlots] = useState(() => {
     if (gameCharacters && gameCharacters.length > 0) {
-      return gameCharacters.map((name) => ({ name, slots: 100 }));
+      return gameCharacters.map((name) => ({ 
+        name, 
+        slots: getCharacterBagSlots(name)
+      }));
     }
     return [
       { name: 'Karakter 1', slots: 28 },
@@ -607,6 +635,28 @@ export default function OptimizationPanel() {
       { name: 'Karakter 3', slots: 32 }
     ];
   });
+  
+  // Update character slots when accountSettings.characterBagInfo becomes available
+  useEffect(() => {
+    if (gameCharacters && gameCharacters.length > 0 && accountSettings?.characterBagInfo) {
+      const hasValidBagInfo = Object.keys(accountSettings.characterBagInfo).length > 0;
+      if (hasValidBagInfo) {
+        setCharacterSlots(prev => {
+          // Only update if we have new data and slots haven't been manually changed
+          return gameCharacters.map((name) => {
+            const existingChar = prev.find(c => c.name === name);
+            const apiBagSlots = accountSettings.characterBagInfo[name]?.totalSlots;
+            
+            // Use API data if available, otherwise keep existing value
+            if (apiBagSlots && apiBagSlots > 0) {
+              return { name, slots: apiBagSlots };
+            }
+            return existingChar || { name, slots: 100 };
+          });
+        });
+      }
+    }
+  }, [gameCharacters, accountSettings?.characterBagInfo]);
   
   const [useSubCategories, setUseSubCategories] = useState(false);
   const [distributionResult, setDistributionResult] = useState(null);
@@ -806,6 +856,7 @@ export default function OptimizationPanel() {
                 onChange={updateCharacter}
                 onRemove={removeCharacter}
                 canRemove={characterSlots.length > 1}
+                isFromApi={accountSettings?.characterBagInfo?.[char.name]?.totalSlots > 0}
               />
             ))}
           </div>
