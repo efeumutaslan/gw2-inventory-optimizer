@@ -1,5 +1,5 @@
 import { createContext, useContext, useReducer, useCallback, useMemo } from 'react';
-import { getAllInventoryData, validateToken } from '../services/gw2Api';
+import { getAllInventoryData, validateToken, getAccountStorageInfo, getAllCharactersBagInfo } from '../services/gw2Api';
 
 // Load locked items from localStorage
 const loadLockedItems = () => {
@@ -19,6 +19,15 @@ const loadMaterialItemLimits = () => {
   }
 };
 
+// Load account settings from localStorage
+const loadAccountSettings = () => {
+  try {
+    return JSON.parse(localStorage.getItem('gw2_account_settings') || '{}');
+  } catch {
+    return {};
+  }
+};
+
 const initialState = {
   apiKey: localStorage.getItem('gw2_api_key') || null,
   isValidated: false,
@@ -33,7 +42,16 @@ const initialState = {
   stats: { totalItems: 0, uniqueItems: 0, bySource: {}, byRarity: {} },
   materialStorageUsedSlots: 0,
   lockedItems: loadLockedItems(),
-  materialItemLimits: loadMaterialItemLimits()
+  materialItemLimits: loadMaterialItemLimits(),
+  // Account storage settings (auto-detected from API)
+  accountSettings: {
+    bankSlots: 0,
+    bankTabs: 0,
+    sharedSlots: 0,
+    characterBagInfo: {},
+    materialStorageLimit: loadAccountSettings().materialStorageLimit || 3000, // Manual setting
+    ...loadAccountSettings()
+  }
 };
 
 const ACTIONS = {
@@ -48,7 +66,8 @@ const ACTIONS = {
   TOGGLE_ITEM_LOCK: 'TOGGLE_ITEM_LOCK',
   SET_LOCKED_ITEMS: 'SET_LOCKED_ITEMS',
   SET_MATERIAL_ITEM_LIMIT: 'SET_MATERIAL_ITEM_LIMIT',
-  REMOVE_MATERIAL_ITEM_LIMIT: 'REMOVE_MATERIAL_ITEM_LIMIT'
+  REMOVE_MATERIAL_ITEM_LIMIT: 'REMOVE_MATERIAL_ITEM_LIMIT',
+  SET_ACCOUNT_SETTINGS: 'SET_ACCOUNT_SETTINGS'
 };
 
 function inventoryReducer(state, action) {
@@ -129,6 +148,14 @@ function inventoryReducer(state, action) {
       return { ...state, materialItemLimits: newLimits };
     }
     
+    case ACTIONS.SET_ACCOUNT_SETTINGS: {
+      const newSettings = { ...state.accountSettings, ...action.payload };
+      // Only save manual settings to localStorage (materialStorageLimit)
+      const manualSettings = { materialStorageLimit: newSettings.materialStorageLimit };
+      localStorage.setItem('gw2_account_settings', JSON.stringify(manualSettings));
+      return { ...state, accountSettings: newSettings };
+    }
+    
     default:
       return state;
   }
@@ -166,10 +193,33 @@ export function InventoryProvider({ children }) {
     if (!state.apiKey) return;
     dispatch({ type: ACTIONS.SET_LOADING, payload: { loading: true, message: '' } });
     try {
-      const data = await getAllInventoryData(state.apiKey, ({ detail }) => {
-        dispatch({ type: ACTIONS.SET_LOADING, payload: { loading: true, message: detail } });
-      });
+      // Fetch inventory data and account storage info in parallel
+      const [data, storageInfo, characterBagInfo] = await Promise.all([
+        getAllInventoryData(state.apiKey, ({ detail }) => {
+          dispatch({ type: ACTIONS.SET_LOADING, payload: { loading: true, message: detail } });
+        }),
+        getAccountStorageInfo(state.apiKey).catch(e => {
+          console.warn('Failed to get account storage info:', e);
+          return null;
+        }),
+        getAllCharactersBagInfo(state.apiKey).catch(e => {
+          console.warn('Failed to get character bag info:', e);
+          return {};
+        })
+      ]);
+      
       dispatch({ type: ACTIONS.SET_ITEMS, payload: data });
+      
+      // Update account settings with auto-detected values
+      if (storageInfo || Object.keys(characterBagInfo).length > 0) {
+        dispatch({ 
+          type: ACTIONS.SET_ACCOUNT_SETTINGS, 
+          payload: {
+            ...(storageInfo || {}),
+            characterBagInfo
+          }
+        });
+      }
     } catch (error) {
       dispatch({ type: ACTIONS.SET_ERROR, payload: error.message });
     }
@@ -284,6 +334,15 @@ export function InventoryProvider({ children }) {
     dispatch({ type: ACTIONS.SET_LOCKED_ITEMS, payload: {} });
   }, []);
 
+  // Account settings functions
+  const setAccountSettings = useCallback((settings) => {
+    dispatch({ type: ACTIONS.SET_ACCOUNT_SETTINGS, payload: settings });
+  }, []);
+  
+  const setMaterialStorageLimit = useCallback((limit) => {
+    dispatch({ type: ACTIONS.SET_ACCOUNT_SETTINGS, payload: { materialStorageLimit: limit } });
+  }, []);
+
   const value = {
     ...state,
     setApiKey,
@@ -303,7 +362,9 @@ export function InventoryProvider({ children }) {
     clearAllManualLocks,
     setMaterialItemLimit,
     removeMaterialItemLimit,
-    getMaterialItemLimit
+    getMaterialItemLimit,
+    setAccountSettings,
+    setMaterialStorageLimit
   };
   
   return <InventoryContext.Provider value={value}>{children}</InventoryContext.Provider>;

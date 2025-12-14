@@ -1,7 +1,7 @@
 {
   "name": "gw2-inventory-manager",
   "private": true,
-  "version": "2.5.0",
+  "version": "2.5.1",
   "description": "Guild Wars 2 Inventory Manager - Optimize your inventory distribution across characters",
   "author": "Efe",
   "homepage": "https://github.com/USERNAME/gw2-inventory-manager",

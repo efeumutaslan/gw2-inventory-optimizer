@@ -100,6 +100,74 @@ export async function getSharedInventory(apiKey) {
   return response.json();
 }
 
+// Get account storage information (bank tabs, shared slots)
+export async function getAccountStorageInfo(apiKey) {
+  const [bankData, sharedData] = await Promise.all([
+    getBank(apiKey),
+    getSharedInventory(apiKey)
+  ]);
+  
+  // Bank: array length / 30 = number of tabs (each tab has 30 slots)
+  const bankSlots = bankData.length;
+  const bankTabs = Math.ceil(bankSlots / 30);
+  
+  // Shared inventory: array length = number of shared slots
+  const sharedSlots = sharedData.length;
+  
+  return {
+    bankSlots,
+    bankTabs,
+    sharedSlots
+  };
+}
+
+// Get character bag slot information
+export async function getCharacterBagInfo(apiKey, characterName) {
+  const inventory = await getCharacterInventory(apiKey, characterName);
+  
+  if (!inventory.bags) {
+    return { totalSlots: 0, bags: [] };
+  }
+  
+  const bags = inventory.bags.map((bag, index) => {
+    if (!bag) {
+      return { slot: index, empty: true, size: 0 };
+    }
+    return {
+      slot: index,
+      empty: false,
+      id: bag.id,
+      size: bag.size
+    };
+  });
+  
+  const totalSlots = bags.reduce((sum, bag) => sum + (bag.size || 0), 0);
+  const bagSlotCount = inventory.bags.length; // Number of bag slots character has
+  
+  return {
+    totalSlots,
+    bagSlotCount,
+    bags
+  };
+}
+
+// Get all characters' bag information
+export async function getAllCharactersBagInfo(apiKey) {
+  const characters = await getCharacters(apiKey);
+  const results = {};
+  
+  for (const charName of characters) {
+    try {
+      results[charName] = await getCharacterBagInfo(apiKey, charName);
+    } catch (e) {
+      console.warn(`Failed to get bag info for ${charName}:`, e);
+      results[charName] = { totalSlots: 0, bagSlotCount: 0, bags: [] };
+    }
+  }
+  
+  return results;
+}
+
 // Get material storage categories (which items can go to material storage)
 export async function getMaterialCategories() {
   try {
