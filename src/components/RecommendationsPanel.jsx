@@ -15,20 +15,47 @@ import {
 } from '../services/recommendations';
 import { RARITY_COLORS, formatGoldValue } from '../utils/categories';
 
-// Recommendation type icons
+// Recommendation type icons - matches gw2stacks categories
 const TYPE_ICONS = {
+  // gw2stacks: Restack
+  [RECOMMENDATION_TYPES.STACK]: '📦',
+  
+  // gw2stacks: Gobble
+  [RECOMMENDATION_TYPES.GOBBLE]: '🍽️',
+  
+  // gw2stacks: Sell
   [RECOMMENDATION_TYPES.SELL_TP]: '💰',
   [RECOMMENDATION_TYPES.SELL_VENDOR]: '🪙',
-  [RECOMMENDATION_TYPES.USE_UNLOCK]: '🔓',
-  [RECOMMENDATION_TYPES.DESTROY]: '🗑️',
-  [RECOMMENDATION_TYPES.KEEP_KILLPROOF]: '⚔️',
-  [RECOMMENDATION_TYPES.EXTRACT_UPGRADE]: '🔧',
+  
+  // gw2stacks: Salvage
   [RECOMMENDATION_TYPES.SALVAGE]: '🔨',
-  [RECOMMENDATION_TYPES.STACK]: '📦',
+  [RECOMMENDATION_TYPES.SALVAGE_RARE]: '⚗️',
+  [RECOMMENDATION_TYPES.EXTRACT_UPGRADE]: '🔧',
+  
+  // gw2stacks: Craft
+  [RECOMMENDATION_TYPES.CRAFT_LUCK]: '🍀',
+  [RECOMMENDATION_TYPES.CRAFT_AWAY]: '⚒️',
+  
+  // gw2stacks: Play/Consume
+  [RECOMMENDATION_TYPES.USE_BOOSTER]: '🚀',
+  [RECOMMENDATION_TYPES.USE_FOOD]: '🍖',
   [RECOMMENDATION_TYPES.CONSUME]: '✨',
+  [RECOMMENDATION_TYPES.OPEN_CONTAINER]: '📦',
+  
+  // gw2stacks: Delete
+  [RECOMMENDATION_TYPES.DESTROY]: '🗑️',
+  [RECOMMENDATION_TYPES.DELETE_JUNK]: '❌',
+  
+  // gw2stacks: Misc
+  [RECOMMENDATION_TYPES.WARNING]: '⚠️',
+  [RECOMMENDATION_TYPES.MISC_TIP]: '💡',
+  
+  // Keep/Unlock
+  [RECOMMENDATION_TYPES.USE_UNLOCK]: '🔓',
+  [RECOMMENDATION_TYPES.KEEP_KILLPROOF]: '⚔️',
+  [RECOMMENDATION_TYPES.KEEP_LEGENDARY]: '🌟',
   [RECOMMENDATION_TYPES.KEEP]: '✓',
   [RECOMMENDATION_TYPES.DEPOSIT]: '📥',
-  [RECOMMENDATION_TYPES.WARNING]: '⚠️',
 };
 
 export default function RecommendationsPanel() {
